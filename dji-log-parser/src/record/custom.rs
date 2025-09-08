@@ -17,7 +17,33 @@ pub struct Custom {
     pub h_speed: f32,
     pub distance: f32,
     #[br(
-        map = |x: i64| DateTime::from_timestamp(x / 1000, (x % 1000 * 1000000) as u32).unwrap_or_default(),
+        map = |x: i64| {
+            // Try milliseconds first (original format)
+            if let Some(dt) = DateTime::from_timestamp(x / 1000, (x % 1000 * 1000000) as u32) {
+                if dt.year() > 2010 && dt.year() < 2100 {
+                    return dt;
+                }
+            }
+            // Try microseconds (possible newer format)
+            if let Some(dt) = DateTime::from_timestamp(x / 1000000, (x % 1000000 * 1000) as u32) {
+                if dt.year() > 2010 && dt.year() < 2100 {
+                    return dt;
+                }
+            }
+            // Try nanoseconds (possible newer format)
+            if let Some(dt) = DateTime::from_timestamp(x / 1000000000, (x % 1000000000) as u32) {
+                if dt.year() > 2010 && dt.year() < 2100 {
+                    return dt;
+                }
+            }
+            // Try as seconds (fallback)
+            if let Some(dt) = DateTime::from_timestamp(x, 0) {
+                if dt.year() > 2010 && dt.year() < 2100 {
+                    return dt;
+                }
+            }
+            DateTime::default()
+        },
         // We ensure the year is between 2010 and 2100 to avoid invalid data
         assert(update_timestamp.year() > 2010 && update_timestamp.year() < 2100)
     )]
