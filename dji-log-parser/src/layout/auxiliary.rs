@@ -24,6 +24,7 @@ pub(crate) enum Auxiliary {
 #[derive(Debug)]
 #[br(little)]
 pub(crate) struct AuxiliaryInfo {
+    #[allow(dead_code)]
     pub version_data: u8,
     #[br(temp)]
     info_length: u16,
@@ -31,6 +32,7 @@ pub(crate) struct AuxiliaryInfo {
     pub info_data: Vec<u8>,
     #[br(temp)]
     signature_length: u16,
+    #[allow(dead_code)]
     #[br(count = signature_length)]
     pub signature_data: Vec<u8>,
 }

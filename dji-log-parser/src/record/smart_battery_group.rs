@@ -71,4 +71,3 @@ pub struct SmartBatterySingleVoltage {
     #[br(count = cell_count, map = |xs: Vec<u16>| xs.into_iter().map(|x| x as f32 / 1000.0).collect())]
     pub cell_voltages: Vec<f32>,
 }
-

@@ -41,11 +41,11 @@ pub struct FrameDetails {
 }
 
 impl FrameDetails {
-    /// Creates FrameDetails from Details, but uses the most recent frame data 
+    /// Creates FrameDetails from Details, but uses the most recent frame data
     /// for serial numbers if available (from ComponentSerial records)
     pub fn from_details_and_frames(details: Details, frames: &[super::Frame]) -> Self {
         let mut frame_details = Self::from(details.clone());
-        
+
         // Find the most recent frame with updated serial numbers from ComponentSerial records
         // We check if the frame serial is longer than the details serial, indicating it came from ComponentSerial
         if let Some(last_frame) = frames.last() {
@@ -59,7 +59,7 @@ impl FrameDetails {
                 frame_details.rc_sn = last_frame.recover.rc_sn.clone();
             }
         }
-        
+
         frame_details
     }
 }

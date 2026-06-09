@@ -14,23 +14,23 @@ mod battery;
 mod camera;
 mod custom;
 mod details;
+mod firmware;
 mod gimbal;
 mod home;
 mod osd;
 mod rc;
 mod recover;
-mod firmware;
 
 pub use app::FrameApp;
 pub use battery::FrameBattery;
 pub use camera::FrameCamera;
 pub use custom::FrameCustom;
 pub use details::FrameDetails;
+pub use firmware::FrameFirmware;
 pub use gimbal::FrameGimbal;
 pub use home::FrameHome;
 pub use osd::FrameOSD;
 pub use rc::FrameRC;
-pub use firmware::FrameFirmware;
 pub use recover::FrameRecover;
 
 /// Represents a normalized frame of data from a DJI log.
@@ -344,7 +344,7 @@ pub fn records_to_frames(records: Vec<Record>, details: Details) -> Vec<Frame> {
                         .len()
                         .min(battery.cell_count as usize);
                     frame.battery.cell_voltages = vec![0.0; cell_num];
-                    
+
                     frame.battery.is_cell_voltage_estimated = false;
 
                     frame.battery.cell_voltages[..cell_num]
