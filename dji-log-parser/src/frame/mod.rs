@@ -76,6 +76,10 @@ impl Frame {
             && battery.capacity_percent <= 100
     }
 
+    fn is_valid_signal_percent(signal_percent: u8) -> bool {
+        (1..=100).contains(&signal_percent)
+    }
+
     fn reset_battery(battery: &mut FrameBattery) {
         if battery.is_cell_voltage_estimated {
             battery.cell_voltages.fill(0.0);
@@ -524,10 +528,12 @@ pub fn records_to_frames(records: Vec<Record>, details: Details) -> Vec<Frame> {
                 }
             },
             Record::OFDM(ofdm) => {
-                if ofdm.is_up {
-                    frame.rc.uplink_signal = Some(ofdm.signal_percent);
-                } else {
-                    frame.rc.downlink_signal = Some(ofdm.signal_percent);
+                if Frame::is_valid_signal_percent(ofdm.signal_percent) {
+                    if ofdm.is_up {
+                        frame.rc.uplink_signal = Some(ofdm.signal_percent);
+                    } else {
+                        frame.rc.downlink_signal = Some(ofdm.signal_percent);
+                    }
                 }
             }
             Record::Custom(custom) => {
