@@ -6,6 +6,8 @@ use tsify_next::Tsify;
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(target_arch = "wasm32", derive(Tsify))]
 pub struct FrameBattery {
+    /// Battery index in multi-battery systems
+    pub index: u8,
     /// Battery charge level in percentage
     pub charge_level: u8,
     /// Battery voltage
@@ -13,7 +15,8 @@ pub struct FrameBattery {
     /// Battery current
     pub current: f32,
     /// Designed battery capacity
-    pub design_capacity: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub design_capacity: Option<u32>,
     /// Current battery capacity
     pub current_capacity: u32,
     /// Full battery capacity
@@ -25,16 +28,19 @@ pub struct FrameBattery {
     /// Cell voltages
     pub cell_voltages: Vec<f32>,
     /// Deviation in cell voltages
-    pub cell_voltage_deviation: f32,
+    pub cell_voltage_deviation: Option<f32>,
     /// Maximum deviation in cell voltages
-    pub max_cell_voltage_deviation: f32,
+    pub max_cell_voltage_deviation: Option<f32>,
     /// Battery temperature
     pub temperature: f32,
     /// Minimum battery temperature
     pub min_temperature: f32,
     /// Maximum battery temperature
     pub max_temperature: f32,
-    pub number_of_discharges: u16,
-    pub life: u8,
-    pub lifetime_remaining: u8,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub number_of_discharges: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub life: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lifetime_remaining: Option<u8>,
 }

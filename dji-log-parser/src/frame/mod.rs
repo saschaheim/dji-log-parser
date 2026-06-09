@@ -48,7 +48,11 @@ pub struct Frame {
     pub gimbal: FrameGimbal,
     pub camera: FrameCamera,
     pub rc: FrameRC,
+    #[serde(skip_serializing)]
     pub battery: FrameBattery,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub battery_summary: Option<FrameBattery>,
+    pub batteries: Vec<FrameBattery>,
     pub home: FrameHome,
     pub recover: FrameRecover,
     pub app: FrameApp,
@@ -56,6 +60,104 @@ pub struct Frame {
 }
 
 impl Frame {
+    fn is_valid_battery_dynamic(
+        battery: &crate::record::smart_battery_group::SmartBatteryDynamic,
+    ) -> bool {
+        battery.current_voltage.is_finite()
+            && (0.0..=100.0).contains(&battery.current_voltage)
+            && battery.current_current.is_finite()
+            && (0.0..=500.0).contains(&battery.current_current)
+            && battery.temperature.is_finite()
+            && (-50.0..=150.0).contains(&battery.temperature)
+            && battery.full_capacity <= 100_000
+            && battery.remained_capacity <= 100_000
+            && battery.remained_capacity <= battery.full_capacity.saturating_add(10_000)
+            && (1..=24).contains(&battery.cell_count)
+            && battery.capacity_percent <= 100
+    }
+
+    fn reset_battery(battery: &mut FrameBattery) {
+        if battery.is_cell_voltage_estimated {
+            battery.cell_voltages.fill(0.0);
+        }
+    }
+
+    fn finalize_battery(battery: &mut FrameBattery) {
+        if let Some(first_cell) = battery.cell_voltages.first() {
+            if *first_cell == 0.0 && battery.voltage > 0.0 {
+                battery.is_cell_voltage_estimated = true;
+                battery
+                    .cell_voltages
+                    .fill(battery.voltage / battery.cell_num as f32)
+            }
+        }
+
+        if battery.temperature > battery.max_temperature {
+            battery.max_temperature = battery.temperature
+        }
+
+        if battery.temperature < battery.min_temperature
+            || battery.min_temperature == f32::default()
+        {
+            battery.min_temperature = battery.temperature
+        }
+
+        if battery.is_cell_voltage_estimated || battery.cell_voltages.len() < 2 {
+            battery.cell_voltage_deviation = None;
+            battery.max_cell_voltage_deviation = None;
+        } else {
+            let max_voltage = battery
+                .cell_voltages
+                .iter()
+                .copied()
+                .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+                .unwrap_or(0.0);
+
+            let min_voltage = battery
+                .cell_voltages
+                .iter()
+                .copied()
+                .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+                .unwrap_or(0.0);
+
+            let deviation = ((max_voltage - min_voltage) * 1000.0).round() / 1000.0;
+            battery.cell_voltage_deviation = Some(deviation);
+
+            if battery
+                .max_cell_voltage_deviation
+                .is_none_or(|max_deviation| deviation > max_deviation)
+            {
+                battery.max_cell_voltage_deviation = Some(deviation);
+            }
+        }
+    }
+
+    fn ensure_battery_slot(&mut self, slot: usize, index: u8) -> &mut FrameBattery {
+        if slot >= self.batteries.len() {
+            let cell_num = self
+                .batteries
+                .first()
+                .map(|battery| battery.cell_num)
+                .unwrap_or(self.battery.cell_num);
+            self.batteries.resize_with(slot + 1, || FrameBattery {
+                index,
+                cell_num,
+                cell_voltages: vec![0.0; cell_num as usize],
+                is_cell_voltage_estimated: true,
+                ..FrameBattery::default()
+            });
+
+            for battery in self.batteries.iter_mut() {
+                if battery.cell_voltages.is_empty() && battery.cell_num > 0 {
+                    battery.cell_voltages = vec![0.0; battery.cell_num as usize];
+                }
+            }
+        }
+
+        self.batteries[slot].index = index;
+        &mut self.batteries[slot]
+    }
+
     /// Resets event-related values of the `Frame` instance.
     ///
     /// This method resets the state of the camera, application tips, and warnings.
@@ -66,8 +168,9 @@ impl Frame {
         self.app.tip = String::default();
         self.app.warn = String::default();
 
-        if self.battery.is_cell_voltage_estimated {
-            self.battery.cell_voltages.fill(0.0);
+        Self::reset_battery(&mut self.battery);
+        for battery in &mut self.batteries {
+            Self::reset_battery(battery);
         }
     }
 
@@ -91,46 +194,14 @@ impl Frame {
             self.osd.z_speed_max = self.osd.z_speed;
         }
 
-        if let Some(first_cell) = self.battery.cell_voltages.first() {
-            if *first_cell == 0.0 && self.battery.voltage > 0.0 {
-                self.battery.is_cell_voltage_estimated = true;
-                self.battery
-                    .cell_voltages
-                    .fill(self.battery.voltage / self.battery.cell_num as f32)
-            }
-        }
-
-        if self.battery.temperature > self.battery.max_temperature {
-            self.battery.max_temperature = self.battery.temperature
-        }
-
-        if self.battery.temperature < self.battery.min_temperature
-            || self.battery.min_temperature == f32::default()
-        {
-            self.battery.min_temperature = self.battery.temperature
-        }
-
-        let max_voltage = self
-            .battery
-            .cell_voltages
-            .iter()
-            .copied()
-            .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
-            .unwrap_or(0.0);
-
-        let min_voltage = self
-            .battery
-            .cell_voltages
-            .iter()
-            .copied()
-            .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
-            .unwrap_or(0.0);
-
-        self.battery.cell_voltage_deviation =
-            ((max_voltage - min_voltage) * 1000.0).round() / 1000.0;
-
-        if self.battery.cell_voltage_deviation > self.battery.max_cell_voltage_deviation {
-            self.battery.max_cell_voltage_deviation = self.battery.cell_voltage_deviation;
+        Self::finalize_battery(&mut self.battery);
+        self.battery_summary = if self.batteries.len() > 1 {
+            Some(self.battery.clone())
+        } else {
+            None
+        };
+        for battery in &mut self.batteries {
+            Self::finalize_battery(battery);
         }
     }
 }
@@ -151,14 +222,32 @@ impl Frame {
 ///   specific normalization logic.
 ///
 pub fn records_to_frames(records: Vec<Record>, details: Details) -> Vec<Frame> {
+    let battery_num = details.product_type.battery_num().max(1);
+    let total_cell_num = details.product_type.battery_cell_num();
+    let batteries = (0..battery_num)
+        .map(|slot| FrameBattery {
+            index: if battery_num > 1 { slot + 1 } else { 0 },
+            cell_num: total_cell_num,
+            cell_voltages: vec![0.0; total_cell_num as usize],
+            is_cell_voltage_estimated: true,
+            ..FrameBattery::default()
+        })
+        .collect();
+    let battery_sns = if details.battery_sn.is_empty() {
+        Vec::new()
+    } else {
+        vec![details.battery_sn.clone()]
+    };
+
     let mut frames = Vec::new();
     let mut frame = Frame {
         battery: FrameBattery {
-            cell_num: details.product_type.battery_cell_num(),
-            cell_voltages: vec![0.0; details.product_type.battery_cell_num() as usize],
+            cell_num: total_cell_num,
+            cell_voltages: vec![0.0; total_cell_num as usize],
             is_cell_voltage_estimated: true,
             ..FrameBattery::default()
         },
+        batteries,
         recover: FrameRecover {
             app_platform: Some(details.app_platform.clone()),
             app_version: details.app_version.clone(),
@@ -167,6 +256,7 @@ pub fn records_to_frames(records: Vec<Record>, details: Details) -> Vec<Frame> {
             camera_sn: details.camera_sn.clone(),
             rc_sn: details.rc_sn.clone(),
             battery_sn: details.battery_sn.clone(),
+            battery_sns,
         },
         ..Frame::default()
     };
@@ -292,9 +382,10 @@ pub fn records_to_frames(records: Vec<Record>, details: Details) -> Vec<Frame> {
                 frame.battery.voltage = battery.voltage;
                 frame.battery.current_capacity = battery.current_capacity as u32;
                 frame.battery.full_capacity = battery.full_capacity as u32;
-                frame.battery.number_of_discharges = battery.number_of_discharges;
-                frame.battery.life = battery.life;
+                frame.battery.number_of_discharges = Some(battery.number_of_discharges);
+                frame.battery.life = Some(battery.life);
                 frame.battery.is_cell_voltage_estimated = false;
+                frame.battery.cell_voltages = vec![0.0; frame.battery.cell_num as usize];
 
                 let cell_num = frame.battery.cell_voltages.len();
                 if cell_num > 0 {
@@ -315,20 +406,87 @@ pub fn records_to_frames(records: Vec<Record>, details: Details) -> Vec<Frame> {
                 if cell_num > 5 {
                     frame.battery.cell_voltages[5] = battery.voltage_cell6;
                 }
+
+                let indexed_battery = frame.ensure_battery_slot(0, 0);
+                indexed_battery.charge_level = battery.relative_capacity;
+                indexed_battery.voltage = battery.voltage;
+                indexed_battery.current_capacity = battery.current_capacity as u32;
+                indexed_battery.full_capacity = battery.full_capacity as u32;
+                indexed_battery.number_of_discharges = Some(battery.number_of_discharges);
+                indexed_battery.life = Some(battery.life);
+                indexed_battery.is_cell_voltage_estimated = false;
+                indexed_battery.cell_voltages = vec![0.0; indexed_battery.cell_num as usize];
+
+                let cell_num = indexed_battery.cell_voltages.len();
+                if cell_num > 0 {
+                    indexed_battery.cell_voltages[0] = battery.voltage_cell1;
+                }
+                if cell_num > 1 {
+                    indexed_battery.cell_voltages[1] = battery.voltage_cell2;
+                }
+                if cell_num > 2 {
+                    indexed_battery.cell_voltages[2] = battery.voltage_cell3;
+                }
+                if cell_num > 3 {
+                    indexed_battery.cell_voltages[3] = battery.voltage_cell4;
+                }
+                if cell_num > 4 {
+                    indexed_battery.cell_voltages[4] = battery.voltage_cell5;
+                }
+                if cell_num > 5 {
+                    indexed_battery.cell_voltages[5] = battery.voltage_cell6;
+                }
             }
             Record::SmartBattery(battery) => {
                 frame.battery.charge_level = battery.percent;
                 frame.battery.voltage = battery.voltage;
+                let indexed_battery = frame.ensure_battery_slot(0, 0);
+                indexed_battery.charge_level = battery.percent;
+                indexed_battery.voltage = battery.voltage;
             }
             Record::SmartBatteryGroup(battery_group) => match battery_group {
                 SmartBatteryGroup::SmartBatteryStatic(battery) => {
-                    frame.battery.design_capacity = battery.designed_capacity;
-                    frame.battery.lifetime_remaining = battery.battery_life;
-                    frame.battery.number_of_discharges = battery.loop_times;
+                    frame.battery.design_capacity = Some(battery.designed_capacity);
+                    frame.battery.lifetime_remaining = Some(battery.battery_life);
+                    frame.battery.number_of_discharges = Some(battery.loop_times);
+
+                    let battery_num = details.product_type.battery_num();
+                    if battery_num > 1 && battery.index == 0 {
+                        // Index 0 is an aggregate/static controller record on multi-battery aircraft.
+                        // Do not copy static values to physical slots without per-slot records.
+                    } else {
+                        let slot = if battery_num > 1 {
+                            battery.index.saturating_sub(1) as usize
+                        } else {
+                            battery.index as usize
+                        };
+                        let indexed_battery = frame.ensure_battery_slot(slot, battery.index);
+                        indexed_battery.design_capacity = Some(battery.designed_capacity);
+                        indexed_battery.lifetime_remaining = Some(battery.battery_life);
+                        indexed_battery.number_of_discharges = Some(battery.loop_times);
+                    }
                 }
                 SmartBatteryGroup::SmartBatteryDynamic(battery) => {
-                    // when there are multiple batteries, only one contains accurate values at index 1
-                    if details.product_type.battery_num() < 2 || battery.index == 1 {
+                    if !Frame::is_valid_battery_dynamic(&battery) {
+                        continue;
+                    }
+
+                    if details.product_type.battery_num() < 2 || battery.index > 0 {
+                        let slot = if details.product_type.battery_num() > 1 {
+                            (battery.index - 1) as usize
+                        } else {
+                            battery.index as usize
+                        };
+                        let indexed_battery = frame.ensure_battery_slot(slot, battery.index);
+                        indexed_battery.voltage = battery.current_voltage;
+                        indexed_battery.current = battery.current_current;
+                        indexed_battery.current_capacity = battery.remained_capacity;
+                        indexed_battery.full_capacity = battery.full_capacity;
+                        indexed_battery.charge_level = battery.capacity_percent;
+                        indexed_battery.temperature = battery.temperature;
+                    }
+
+                    if details.product_type.battery_num() < 2 || battery.index == 0 {
                         frame.battery.voltage = battery.current_voltage;
                         frame.battery.current = battery.current_current;
                         frame.battery.current_capacity = battery.remained_capacity;
@@ -338,17 +496,31 @@ pub fn records_to_frames(records: Vec<Record>, details: Details) -> Vec<Frame> {
                     }
                 }
                 SmartBatteryGroup::SmartBatterySingleVoltage(battery) => {
-                    let cell_num = frame
-                        .battery
-                        .cell_voltages
-                        .len()
-                        .min(battery.cell_count as usize);
-                    frame.battery.cell_voltages = vec![0.0; cell_num];
+                    if details.product_type.battery_num() < 2 || battery.index > 0 {
+                        let slot = if details.product_type.battery_num() > 1 {
+                            (battery.index - 1) as usize
+                        } else {
+                            battery.index as usize
+                        };
+                        let indexed_battery = frame.ensure_battery_slot(slot, battery.index);
+                        let indexed_cell_num = indexed_battery
+                            .cell_voltages
+                            .len()
+                            .min(battery.cell_count as usize);
+                        indexed_battery.is_cell_voltage_estimated = false;
+                        indexed_battery.cell_voltages[..indexed_cell_num]
+                            .copy_from_slice(&battery.cell_voltages[..indexed_cell_num]);
+                    }
 
-                    frame.battery.is_cell_voltage_estimated = false;
-
-                    frame.battery.cell_voltages[..cell_num]
-                        .copy_from_slice(&battery.cell_voltages[..cell_num]);
+                    let expected_cell_num = frame.battery.cell_voltages.len();
+                    if battery.cell_count as usize >= expected_cell_num {
+                        frame.battery.is_cell_voltage_estimated = false;
+                        frame.battery.cell_voltages[..expected_cell_num]
+                            .copy_from_slice(&battery.cell_voltages[..expected_cell_num]);
+                    } else {
+                        frame.battery.is_cell_voltage_estimated = true;
+                        frame.battery.cell_voltages.fill(0.0);
+                    }
                 }
             },
             Record::OFDM(ofdm) => {
@@ -415,6 +587,17 @@ pub fn records_to_frames(records: Vec<Record>, details: Details) -> Vec<Frame> {
                 if frame.recover.battery_sn.len() <= recover.battery_sn.len() {
                     frame.recover.battery_sn = recover.battery_sn;
                 }
+                if !frame.recover.battery_sn.is_empty()
+                    && !frame
+                        .recover
+                        .battery_sns
+                        .contains(&frame.recover.battery_sn)
+                {
+                    frame
+                        .recover
+                        .battery_sns
+                        .push(frame.recover.battery_sn.clone());
+                }
             }
             Record::AppTip(app_tip) => {
                 frame.app.tip = append_message(frame.app.tip, app_tip.message);
@@ -447,6 +630,17 @@ pub fn records_to_frames(records: Vec<Record>, details: Details) -> Vec<Frame> {
                     }
                     ComponentType::Battery => {
                         frame.recover.battery_sn = component_serial.serial;
+                        if !frame.recover.battery_sn.is_empty()
+                            && !frame
+                                .recover
+                                .battery_sns
+                                .contains(&frame.recover.battery_sn)
+                        {
+                            frame
+                                .recover
+                                .battery_sns
+                                .push(frame.recover.battery_sn.clone());
+                        }
                     }
                     ComponentType::Unknown(_) => {
                         // Ignore unknown component types

@@ -23,4 +23,6 @@ pub struct FrameRecover {
     pub rc_sn: String,
     /// Serial number of the battery
     pub battery_sn: String,
+    /// Serial numbers of all detected batteries
+    pub battery_sns: Vec<String>,
 }
