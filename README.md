@@ -59,8 +59,10 @@ Use `%d` in the images or thumbnails option to specify a sequence.
 
 ### Advanced Options
 
-- `--api-custom-department`: Manually set the department on keychains apis request
-- `--api-custom-version`: Manually set the department on keychains apis request
+- `--api-custom-department`: Manually set the department on keychains api request
+- `--api-custom-version`: Manually set the keychain request version
+
+`--api-custom-version` is not the same as the DJI flight record file version. For example, a flight record with format version `14` can still require keychain request version `4`. Only override this value if you know the version from the log auxiliary data or DJI API requirements; otherwise, let the parser detect it automatically.
 
 For a complete list of options, run:
 
