@@ -44,7 +44,7 @@ pub struct SmartBattery {
     pub reserve: u8,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, Clone, Copy)]
 #[cfg_attr(target_arch = "wasm32", derive(Tsify))]
 pub enum BatteryGoHomeStatus {
     NonGoHome,

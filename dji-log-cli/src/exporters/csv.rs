@@ -186,6 +186,8 @@ fn format_key(prefix: Option<&str>, key: &str) -> String {
         "home" => "HOME",
         "recover" => "RECOVER",
         "app" => "APP",
+        "appGps" => "APPGPS",
+        "mc" => "MC",
         "details" => "DETAILS",
         _ => key,
     };
@@ -212,6 +214,7 @@ fn get_headers(frame: &Frame) -> Vec<String> {
         "OSD.ySpeedMax".to_string(), // Maximum speed reached along the Y-axis in meters per second
         "OSD.hSpeed".to_string(),    // Horizontal speed in meters per second
         "OSD.hSpeedMax".to_string(), // Maximum horizontal speed in meters per second
+        "OSD.mileage".to_string(),   // Cumulative horizontal distance flown in meters
         "OSD.zSpeed".to_string(),    // Vertical speed in meters per second
         "OSD.zSpeedMax".to_string(), // Maximum vertical speed reached in meters per second
         "OSD.pitch".to_string(),     // Pitch angle in degrees
@@ -284,6 +287,20 @@ fn get_headers(frame: &Frame) -> Vec<String> {
         "BATTERY.temperature".to_string(),          // Battery temperature
         "BATTERY.minTemperature".to_string(),       // Minimum battery temperature
         "BATTERY.maxTemperature".to_string(),       // Maximum battery temperature
+        "BATTERY.usefulTime".to_string(),           // Remaining useful battery time
+        "BATTERY.goHomeTime".to_string(),           // Remaining time before go-home
+        "BATTERY.landTime".to_string(),             // Remaining time before landing
+        "BATTERY.goHomeBattery".to_string(),        // Go-home battery threshold
+        "BATTERY.landBattery".to_string(),          // Landing battery threshold
+        "BATTERY.safeFlyRadius".to_string(),        // Safe fly radius
+        "BATTERY.volumeConsume".to_string(),        // Battery volume consumption
+        "BATTERY.status".to_string(),               // Battery status bit field
+        "BATTERY.goHomeStatus".to_string(),         // Battery go-home status
+        "BATTERY.goHomeCountdown".to_string(),      // Battery go-home countdown
+        "BATTERY.lowWarning".to_string(),           // Low battery warning threshold
+        "BATTERY.lowWarningGoHome".to_string(),     // Low warning go-home flag
+        "BATTERY.seriousLowWarning".to_string(),    // Serious low battery warning threshold
+        "BATTERY.seriousLowWarningLanding".to_string(), // Serious low warning landing flag
         "HOME.latitude".to_string(),                // Home point latitude in degrees
         "HOME.longitude".to_string(),               // Home point longitude in degrees
         "HOME.altitude".to_string(),                // Home point altitude in meters
@@ -314,6 +331,12 @@ fn get_headers(frame: &Frame) -> Vec<String> {
         "RECOVER.batterySerial".to_string(), // Serial number of the battery
         "APP.tip".to_string(),       // App tip
         "APP.warn".to_string(),      // App warning
+        "APPGPS.latitude".to_string(), // App-provided latitude in degrees
+        "APPGPS.longitude".to_string(), // App-provided longitude in degrees
+        "MC.failSafeAction".to_string(), // Failsafe protection action
+        "MC.mvoFuncEnabled".to_string(), // Main controller MVO function flag
+        "MC.isObstacleAvoidanceEnabled".to_string(), // Obstacle avoidance enabled flag
+        "MC.userAvoidEnabled".to_string(), // User obstacle avoidance enabled flag
         "DETAILS.totalTime".to_string(), // Total flight time in seconds
         "DETAILS.totalDistance".to_string(), // Total distance flown in meters
         "DETAILS.maxHeight".to_string(), // Maximum height reached during the flight in meters

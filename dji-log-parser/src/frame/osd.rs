@@ -37,6 +37,8 @@ pub struct FrameOSD {
     pub h_speed: f32,
     /// Maximum horizontal speed reached in meters per second
     pub h_speed_max: f32,
+    /// Cumulative horizontal distance flown in meters
+    pub mileage: f32,
     /// Vertical speed in meters per second
     pub z_speed: f32,
     /// Maximum vertical speed reached in meters per second

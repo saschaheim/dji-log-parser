@@ -2,6 +2,8 @@ use serde::Serialize;
 #[cfg(target_arch = "wasm32")]
 use tsify_next::Tsify;
 
+use crate::record::smart_battery::BatteryGoHomeStatus;
+
 #[derive(Serialize, Debug, Default, Clone)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(target_arch = "wasm32", derive(Tsify))]
@@ -37,6 +39,34 @@ pub struct FrameBattery {
     pub min_temperature: f32,
     /// Maximum battery temperature
     pub max_temperature: f32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub useful_time: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub go_home_time: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub land_time: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub go_home_battery: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub land_battery: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub safe_fly_radius: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub volume_consume: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub go_home_status: Option<BatteryGoHomeStatus>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub go_home_countdown: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub low_warning: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub low_warning_go_home: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub serious_low_warning: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub serious_low_warning_landing: Option<u8>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub number_of_discharges: Option<u16>,
     #[serde(skip_serializing_if = "Option::is_none")]

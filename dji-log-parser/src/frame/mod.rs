@@ -11,6 +11,7 @@ use crate::record::Record;
 use crate::utils::append_message;
 
 mod app;
+mod app_gps;
 mod battery;
 mod camera;
 mod custom;
@@ -18,11 +19,13 @@ mod details;
 mod firmware;
 mod gimbal;
 mod home;
+mod mc;
 mod osd;
 mod rc;
 mod recover;
 
 pub use app::FrameApp;
+pub use app_gps::FrameAppGPS;
 pub use battery::FrameBattery;
 pub use camera::FrameCamera;
 pub use custom::FrameCustom;
@@ -30,6 +33,7 @@ pub use details::FrameDetails;
 pub use firmware::FrameFirmware;
 pub use gimbal::FrameGimbal;
 pub use home::FrameHome;
+pub use mc::FrameMC;
 pub use osd::FrameOSD;
 pub use rc::FrameRC;
 pub use recover::FrameRecover;
@@ -57,6 +61,8 @@ pub struct Frame {
     pub home: FrameHome,
     pub recover: FrameRecover,
     pub app: FrameApp,
+    pub app_gps: FrameAppGPS,
+    pub mc: FrameMC,
     pub firmware: FrameFirmware,
 }
 
@@ -111,6 +117,28 @@ impl Frame {
         if battery.is_cell_voltage_estimated {
             battery.cell_voltages.fill(0.0);
         }
+    }
+
+    fn apply_smart_battery(
+        frame_battery: &mut FrameBattery,
+        battery: &crate::record::smart_battery::SmartBattery,
+    ) {
+        frame_battery.charge_level = battery.percent;
+        frame_battery.voltage = battery.voltage;
+        frame_battery.useful_time = Some(battery.useful_time);
+        frame_battery.go_home_time = Some(battery.go_home_time);
+        frame_battery.land_time = Some(battery.land_time);
+        frame_battery.go_home_battery = Some(battery.go_home_battery);
+        frame_battery.land_battery = Some(battery.land_battery);
+        frame_battery.safe_fly_radius = Some(battery.safe_fly_radius);
+        frame_battery.volume_consume = Some(battery.volume_consume);
+        frame_battery.status = Some(battery.status);
+        frame_battery.go_home_status = Some(battery.go_home_status);
+        frame_battery.go_home_countdown = Some(battery.go_home_countdown);
+        frame_battery.low_warning = Some(battery.low_warning);
+        frame_battery.low_warning_go_home = Some(battery.low_warning_go_home);
+        frame_battery.serious_low_warning = Some(battery.serious_low_warning);
+        frame_battery.serious_low_warning_landing = Some(battery.serious_low_warning_landing);
     }
 
     fn finalize_battery(battery: &mut FrameBattery) {
@@ -314,12 +342,28 @@ pub fn records_to_frames(records: Vec<Record>, details: Details) -> Vec<Frame> {
     let mut previous_camera_remain_photo_num = None;
     let mut previous_camera_is_shooting_single_photo = false;
     let mut pending_single_photo_events = 0u32;
+    let mut previous_mileage_position = None;
+    let mut mileage = 0.0f32;
 
     for record in records {
         match record {
             Record::OSD(osd) => {
                 if frame_index > 0 {
                     frame.finalize();
+                    if Frame::is_valid_coordinate(frame.osd.latitude, frame.osd.longitude) {
+                        if let Some((previous_latitude, previous_longitude)) =
+                            previous_mileage_position
+                        {
+                            mileage += Frame::distance_meters(
+                                previous_latitude,
+                                previous_longitude,
+                                frame.osd.latitude,
+                                frame.osd.longitude,
+                            );
+                        }
+                        previous_mileage_position = Some((frame.osd.latitude, frame.osd.longitude));
+                    }
+                    frame.osd.mileage = mileage;
                     frames.push(frame.clone());
                     frame.reset();
                 }
@@ -512,11 +556,9 @@ pub fn records_to_frames(records: Vec<Record>, details: Details) -> Vec<Frame> {
                 }
             }
             Record::SmartBattery(battery) => {
-                frame.battery.charge_level = battery.percent;
-                frame.battery.voltage = battery.voltage;
+                Frame::apply_smart_battery(&mut frame.battery, &battery);
                 let indexed_battery = frame.ensure_battery_slot(0, 0);
-                indexed_battery.charge_level = battery.percent;
-                indexed_battery.voltage = battery.voltage;
+                Frame::apply_smart_battery(indexed_battery, &battery);
             }
             Record::SmartBatteryGroup(battery_group) => match battery_group {
                 SmartBatteryGroup::SmartBatteryStatic(battery) => {
@@ -688,10 +730,18 @@ pub fn records_to_frames(records: Vec<Record>, details: Details) -> Vec<Frame> {
                 // Use AppGPS coordinates when OSD coordinates are invalid (0.0)
                 // This is useful for version 11 logs where OSD coordinates are often corrupted
                 // For some reason, longitude and latitude are swapped in AppGPS
+                frame.app_gps.longitude = app_gps.latitude;
+                frame.app_gps.latitude = app_gps.longitude;
                 if frame.osd.latitude == 0.0 && frame.osd.longitude == 0.0 {
                     frame.osd.longitude = app_gps.latitude;
                     frame.osd.latitude = app_gps.longitude;
                 }
+            }
+            Record::MCParams(mc_params) => {
+                frame.mc.fail_safe_action = Some(mc_params.fail_safe_protection);
+                frame.mc.mvo_func_enabled = mc_params.mvo_func_enabled;
+                frame.mc.is_obstacle_avoidance_enabled = mc_params.avoid_obstacle_enabled;
+                frame.mc.user_avoid_enabled = mc_params.user_avoid_enabled;
             }
             Record::ComponentSerial(component_serial) => {
                 match component_serial.component_type {
