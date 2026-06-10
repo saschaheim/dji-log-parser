@@ -210,6 +210,8 @@ fn get_headers(frame: &Frame) -> Vec<String> {
         "OSD.xSpeedMax".to_string(), // Maximum speed reached along the X-axis in meters per second
         "OSD.ySpeed".to_string(),    // Speed along the Y-axis in meters per second
         "OSD.ySpeedMax".to_string(), // Maximum speed reached along the Y-axis in meters per second
+        "OSD.hSpeed".to_string(),    // Horizontal speed in meters per second
+        "OSD.hSpeedMax".to_string(), // Maximum horizontal speed in meters per second
         "OSD.zSpeed".to_string(),    // Vertical speed in meters per second
         "OSD.zSpeedMax".to_string(), // Maximum vertical speed reached in meters per second
         "OSD.pitch".to_string(),     // Pitch angle in degrees
@@ -285,18 +287,20 @@ fn get_headers(frame: &Frame) -> Vec<String> {
         "HOME.latitude".to_string(),                // Home point latitude in degrees
         "HOME.longitude".to_string(),               // Home point longitude in degrees
         "HOME.altitude".to_string(),                // Home point altitude in meters
-        "HOME.heightLimit".to_string(),             // Max allowed height in meters
-        "HOME.isHomeRecord".to_string(),            // Indicates if home point is recorded
-        "HOME.goHomeMode".to_string(),              // Current return-to-home mode
+        "HOME.distance".to_string(), // Distance from aircraft to home point in meters
+        "HOME.distanceMax".to_string(), // Maximum distance from home point in meters
+        "HOME.heightLimit".to_string(), // Max allowed height in meters
+        "HOME.isHomeRecord".to_string(), // Indicates if home point is recorded
+        "HOME.goHomeMode".to_string(), // Current return-to-home mode
         "HOME.isDynamicHomePointEnabled".to_string(), // Indicates if dynamic home point is enabled
         "HOME.isNearDistanceLimit".to_string(), // Indicates if the drone is near its distance limit
-        "HOME.isNearHeightLimit".to_string(),   // Indicates if the drone is near its height limit
+        "HOME.isNearHeightLimit".to_string(), // Indicates if the drone is near its height limit
         "HOME.isCompassCalibrating".to_string(), // Indicates if compass calibration is in progress
         "HOME.compassCalibrationState".to_string(), // Current state of compass calibration
         "HOME.isMultipleModeEnabled".to_string(), // Indicates if multiple flight modes are enabled
-        "HOME.isBeginnerMode".to_string(),      // Indicates if beginner mode is active
+        "HOME.isBeginnerMode".to_string(), // Indicates if beginner mode is active
         "HOME.isIOCEnabled".to_string(), // Indicates if Intelligent Orientation Control is enabled
-        "HOME.IOCMode".to_string(),      // Current Intelligent Orientation Control mode
+        "HOME.IOCMode".to_string(),  // Current Intelligent Orientation Control mode
         "HOME.goHomeHeight".to_string(), // Return-to-home height in meters
         "HOME.IOCCourseLockAngle".to_string(), // Intelligent Orientation Control course lock angle
         "HOME.maxAllowedHeight".to_string(), // Maximum allowed height for the drone in meters
@@ -306,21 +310,21 @@ fn get_headers(frame: &Frame) -> Vec<String> {
         "RECOVER.aircraftName".to_string(), // Name of the aircraft
         "RECOVER.aircraftSerial".to_string(), // Serial number of the aircraft
         "RECOVER.cameraSerial".to_string(), // Serial number of the camera
-        "RECOVER.rcSerial".to_string(),  // Serial number of the remote control
+        "RECOVER.rcSerial".to_string(), // Serial number of the remote control
         "RECOVER.batterySerial".to_string(), // Serial number of the battery
-        "APP.tip".to_string(),           // App tip
-        "APP.warn".to_string(),          // App warning
+        "APP.tip".to_string(),       // App tip
+        "APP.warn".to_string(),      // App warning
         "DETAILS.totalTime".to_string(), // Total flight time in seconds
         "DETAILS.totalDistance".to_string(), // Total distance flown in meters
         "DETAILS.maxHeight".to_string(), // Maximum height reached during the flight in meters
         "DETAILS.maxHorizontalSpeed".to_string(), // Maximum horizontal speed reached
         "DETAILS.maxVerticalSpeed".to_string(), // Maximum vertical speed reached
-        "DETAILS.photoNum".to_string(),  // Number of photos taken during the flight
+        "DETAILS.photoNum".to_string(), // Number of photos taken during the flight
         "DETAILS.videoTime".to_string(), // Total video recording time in seconds
         "DETAILS.aircraftName".to_string(), // Name of the aircraft
         "DETAILS.aircraftSerial".to_string(), // Serial number of the aircraft
         "DETAILS.cameraSerial".to_string(), // Serial number of the camera
-        "DETAILS.rcSerial".to_string(),  // Serial number of the remote control
+        "DETAILS.rcSerial".to_string(), // Serial number of the remote control
         "DETAILS.appPlatform".to_string(), // The platform of the app used
         "DETAILS.appVersion".to_string(), // Version of the app used
     ]);

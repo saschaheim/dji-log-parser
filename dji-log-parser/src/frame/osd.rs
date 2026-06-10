@@ -33,6 +33,10 @@ pub struct FrameOSD {
     pub y_speed: f32,
     /// Maximum speed reached along the Y-axis in meters per second
     pub y_speed_max: f32,
+    /// Horizontal speed in meters per second
+    pub h_speed: f32,
+    /// Maximum horizontal speed reached in meters per second
+    pub h_speed_max: f32,
     /// Vertical speed in meters per second
     pub z_speed: f32,
     /// Maximum vertical speed reached in meters per second

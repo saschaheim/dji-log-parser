@@ -14,6 +14,10 @@ pub struct FrameHome {
     pub longitude: f64,
     /// Home point altitude in meters
     pub altitude: f32,
+    /// Distance from current aircraft position to home point in meters
+    pub distance: f32,
+    /// Maximum distance from home point in meters
+    pub distance_max: f32,
     /// Max allowed height in meters
     pub height_limit: f32,
     /// Indicates if home point is recorded

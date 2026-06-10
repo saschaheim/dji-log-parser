@@ -81,6 +81,32 @@ impl Frame {
         signal_percent <= 100
     }
 
+    fn is_valid_coordinate(latitude: f64, longitude: f64) -> bool {
+        latitude != 0.0
+            && longitude != 0.0
+            && (-90.0..=90.0).contains(&latitude)
+            && (-180.0..=180.0).contains(&longitude)
+    }
+
+    fn distance_meters(
+        from_latitude: f64,
+        from_longitude: f64,
+        to_latitude: f64,
+        to_longitude: f64,
+    ) -> f32 {
+        const EARTH_RADIUS_METERS: f64 = 6_371_000.0;
+
+        let from_latitude = from_latitude.to_radians();
+        let to_latitude = to_latitude.to_radians();
+        let latitude_delta = to_latitude - from_latitude;
+        let longitude_delta = (to_longitude - from_longitude).to_radians();
+        let a = (latitude_delta / 2.0).sin().powi(2)
+            + from_latitude.cos() * to_latitude.cos() * (longitude_delta / 2.0).sin().powi(2);
+        let c = 2.0 * a.sqrt().atan2((1.0 - a).sqrt());
+
+        (EARTH_RADIUS_METERS * c) as f32
+    }
+
     fn reset_battery(battery: &mut FrameBattery) {
         if battery.is_cell_voltage_estimated {
             battery.cell_voltages.fill(0.0);
@@ -196,8 +222,25 @@ impl Frame {
         if self.osd.y_speed_max < self.osd.y_speed {
             self.osd.y_speed_max = self.osd.y_speed;
         }
+        self.osd.h_speed = (self.osd.x_speed.powi(2) + self.osd.y_speed.powi(2)).sqrt();
+        if self.osd.h_speed_max < self.osd.h_speed {
+            self.osd.h_speed_max = self.osd.h_speed;
+        }
         if self.osd.z_speed_max < self.osd.z_speed {
             self.osd.z_speed_max = self.osd.z_speed;
+        }
+        if Self::is_valid_coordinate(self.osd.latitude, self.osd.longitude)
+            && Self::is_valid_coordinate(self.home.latitude, self.home.longitude)
+        {
+            self.home.distance = Self::distance_meters(
+                self.osd.latitude,
+                self.osd.longitude,
+                self.home.latitude,
+                self.home.longitude,
+            );
+            if self.home.distance_max < self.home.distance {
+                self.home.distance_max = self.home.distance;
+            }
         }
 
         Self::finalize_battery(&mut self.battery);
