@@ -24,7 +24,7 @@ impl Exporter for CSVExporter {
                 .from_path(csv_path)
                 .unwrap();
 
-            let details: FrameDetails = parser.details.clone().into();
+            let details = FrameDetails::from_details_and_frames(parser.details.clone(), frames);
 
             frames.iter().enumerate().for_each(|(index, frame)| {
                 // write headers
@@ -99,7 +99,8 @@ fn get_headers(frame: &Frame) -> Vec<String> {
         "GIMBAL.isRollAtLimit".to_string(), // Indicates if gimbal roll is at its limit
         "GIMBAL.isYawAtLimit".to_string(), // Indicates if gimbal yaw is at its limit
         "GIMBAL.isStuck".to_string(),   // Indicates if the gimbal is stuck
-        "CAMERA.isPhoto".to_string(),   // Indicates if the camera is in photo mode
+        "CAMERA.isPhoto".to_string(),   // Indicates if one or more photos were captured
+        "CAMERA.photoCount".to_string(), // Number of photos captured in the frame
         "CAMERA.isVideo".to_string(),   // Indicates if the camera is in video mode
         "CAMERA.sdCardIsInserted".to_string(), // Indicates if an SD card is inserted
         "CAMERA.sdCardState".to_string(), // Current state of the SD card

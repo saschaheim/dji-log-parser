@@ -8,8 +8,10 @@ use crate::record::camera::SDCardState;
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(target_arch = "wasm32", derive(Tsify))]
 pub struct FrameCamera {
-    /// Indicates if the camera is in photo mode
+    /// Indicates that one or more photos were captured in this frame.
     pub is_photo: bool,
+    /// Number of photos captured in this frame.
+    pub photo_count: u32,
     /// Indicates if the camera is in video mode
     pub is_video: bool,
     /// Indicates if an SD card is inserted

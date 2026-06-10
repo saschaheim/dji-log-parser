@@ -60,6 +60,14 @@ impl FrameDetails {
             }
         }
 
+        let derived_photo_num = frames
+            .iter()
+            .map(|frame| frame.camera.photo_count)
+            .sum::<u32>() as i32;
+        if derived_photo_num > frame_details.photo_num {
+            frame_details.photo_num = derived_photo_num;
+        }
+
         frame_details
     }
 }

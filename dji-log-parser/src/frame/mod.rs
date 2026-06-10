@@ -3,6 +3,7 @@ use serde::Serialize;
 use tsify_next::Tsify;
 
 use crate::layout::details::Details;
+use crate::record::camera::CameraWorkMode;
 use crate::record::component_serial::ComponentType;
 use crate::record::osd::{AppCommand, GroundOrSky};
 use crate::record::smart_battery_group::SmartBatteryGroup;
@@ -169,6 +170,7 @@ impl Frame {
     ///
     fn reset(&mut self) {
         self.camera.is_photo = bool::default();
+        self.camera.photo_count = u32::default();
         self.app.tip = String::default();
         self.app.warn = String::default();
 
@@ -266,6 +268,9 @@ pub fn records_to_frames(records: Vec<Record>, details: Details) -> Vec<Frame> {
     };
 
     let mut frame_index = 0;
+    let mut previous_camera_remain_photo_num = None;
+    let mut previous_camera_is_shooting_single_photo = false;
+    let mut pending_single_photo_events = 0u32;
 
     for record in records {
         match record {
@@ -364,10 +369,32 @@ pub fn records_to_frames(records: Vec<Record>, details: Details) -> Vec<Frame> {
                 frame.gimbal.is_stuck = gimbal.is_stuck;
             }
             Record::Camera(camera) => {
-                frame.camera.is_photo = camera.is_shooting_single_photo;
+                let started_single_photo =
+                    camera.is_shooting_single_photo && !previous_camera_is_shooting_single_photo;
+                if started_single_photo {
+                    frame.camera.photo_count += 1;
+                    pending_single_photo_events += 1;
+                }
+
+                if let Some(previous_remain_photo_num) = previous_camera_remain_photo_num {
+                    let is_capture_mode = matches!(&camera.work_mode, CameraWorkMode::Capture);
+                    if is_capture_mode
+                        && !camera.is_recording
+                        && camera.remain_photo_num < previous_remain_photo_num
+                    {
+                        let photo_delta = previous_remain_photo_num - camera.remain_photo_num;
+                        let already_counted = pending_single_photo_events.min(photo_delta);
+                        pending_single_photo_events -= already_counted;
+                        frame.camera.photo_count += photo_delta - already_counted;
+                    }
+                }
+
+                frame.camera.is_photo = frame.camera.photo_count > 0;
                 frame.camera.is_video = camera.is_recording;
                 frame.camera.sd_card_is_inserted = camera.has_sd_card;
                 frame.camera.sd_card_state = Some(camera.sd_card_state);
+                previous_camera_remain_photo_num = Some(camera.remain_photo_num);
+                previous_camera_is_shooting_single_photo = camera.is_shooting_single_photo;
             }
             Record::RC(rc) => {
                 frame.rc.aileron = rc.aileron;
