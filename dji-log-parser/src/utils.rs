@@ -201,6 +201,28 @@ pub fn pad_with_zeros(input: &[u8], min_length: usize) -> Vec<u8> {
     output
 }
 
+/// Sanitizes fixed-width text fields.
+///
+/// Binary logs can contain leading NUL bytes or binary leftovers in string fields.
+/// We keep printable Unicode text, split on control/invalid bytes, and return the
+/// longest plausible text segment.
+pub fn sanitize_fixed_width_string(bytes: &[u8]) -> String {
+    let text = String::from_utf8_lossy(bytes);
+    let mut best = String::new();
+
+    for segment in text
+        .split(|character: char| character.is_control() || character == '\u{FFFD}')
+        .map(str::trim)
+        .filter(|segment| !segment.is_empty())
+    {
+        if segment.chars().count() > best.chars().count() {
+            best = segment.to_string();
+        }
+    }
+
+    best.trim_matches(char::from(0)).trim().to_string()
+}
+
 /// Adds a new message to the original message with a separator if the new message is not empty.
 ///
 /// # Arguments
@@ -219,5 +241,26 @@ pub fn append_message(original_message: String, message: impl Into<String>) -> S
         format!("{}; {}", original_message, message.into())
     } else {
         message.into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::sanitize_fixed_width_string;
+
+    #[test]
+    fn sanitize_fixed_width_string_removes_leading_nuls() {
+        assert_eq!(
+            sanitize_fixed_width_string(b"\0\0\0 Darrens Inspire1\0\0"),
+            "Darrens Inspire1"
+        );
+    }
+
+    #[test]
+    fn sanitize_fixed_width_string_keeps_best_segment_after_binary_prefix() {
+        assert_eq!(
+            sanitize_fixed_width_string(&[0xff, b'>', b'K', 1, 0, 0, b' ', b'C', b'I', b'2', b'1']),
+            "CI21"
+        );
     }
 }

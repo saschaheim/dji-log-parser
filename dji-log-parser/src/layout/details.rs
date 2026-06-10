@@ -5,19 +5,21 @@ use std::io::SeekFrom;
 #[cfg(target_arch = "wasm32")]
 use tsify_next::Tsify;
 
+use crate::utils::sanitize_fixed_width_string;
+
 #[binread]
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 #[br(little, import(version: u8))]
 #[cfg_attr(target_arch = "wasm32", derive(Tsify))]
 pub struct Details {
-    #[br(count=20, map = |s: Vec<u8>| String::from_utf8_lossy(&s).trim_end_matches('\0').to_string())]
+    #[br(count=20, map = |s: Vec<u8>| sanitize_fixed_width_string(&s))]
     pub sub_street: String,
-    #[br(count=20, map = |s: Vec<u8>| String::from_utf8_lossy(&s).trim_end_matches('\0').to_string())]
+    #[br(count=20, map = |s: Vec<u8>| sanitize_fixed_width_string(&s))]
     pub street: String,
-    #[br(count=20, map = |s: Vec<u8>| String::from_utf8_lossy(&s).trim_end_matches('\0').to_string())]
+    #[br(count=20, map = |s: Vec<u8>| sanitize_fixed_width_string(&s))]
     pub city: String,
-    #[br(count=20, map = |s: Vec<u8>| String::from_utf8_lossy(&s).trim_end_matches('\0').to_string())]
+    #[br(count=20, map = |s: Vec<u8>| sanitize_fixed_width_string(&s))]
     pub area: String,
     pub is_favorite: u8,
     pub is_new: u8,
@@ -67,20 +69,20 @@ pub struct Details {
     _activation_timestamp: i64,
     #[br(
         seek_before = if version <= 5 { SeekFrom::Start(278) } else { SeekFrom::Current(0) },
-        count = if version <= 5 { 24 } else { 32 }, map = |s: Vec<u8>| String::from_utf8_lossy(&s).trim_end_matches('\0').to_string()
+        count = if version <= 5 { 24 } else { 32 }, map = |s: Vec<u8>| sanitize_fixed_width_string(&s)
     )]
     pub aircraft_name: String,
     #[br(
         seek_before = if version <= 5 { SeekFrom::Start(267) } else { SeekFrom::Current(0) },
-        count = if version <= 5 { 10 } else { 16 }, map = |s: Vec<u8>| String::from_utf8_lossy(&s).trim_end_matches('\0').to_string()
+        count = if version <= 5 { 10 } else { 16 }, map = |s: Vec<u8>| sanitize_fixed_width_string(&s)
     )]
     pub aircraft_sn: String,
     #[br(
         seek_before = if version <= 5 { SeekFrom::Start(318) } else { SeekFrom::Current(0) },
-        count = if version <= 5 { 10 } else { 16 }, map = |s: Vec<u8>| String::from_utf8_lossy(&s).trim_end_matches('\0').to_string()
+        count = if version <= 5 { 10 } else { 16 }, map = |s: Vec<u8>| sanitize_fixed_width_string(&s)
     )]
     pub camera_sn: String,
-    #[br(count = if version <= 5 { 10 } else { 16 }, map = |s: Vec<u8>| String::from_utf8_lossy(&s).trim_end_matches('\0').to_string())]
+    #[br(count = if version <= 5 { 10 } else { 16 }, map = |s: Vec<u8>| sanitize_fixed_width_string(&s))]
     pub rc_sn: String,
     #[br(count = if version <= 5 { 10 } else { 16 })]
     #[br(temp)]
@@ -379,9 +381,7 @@ pub fn parse_battery_sn(product_type: ProductType, buf: Vec<u8>) -> String {
     if BCD_PRODUCTS.contains(&product_type) {
         decode_reversed_bcd_battery_sn(buf)
     } else {
-        String::from_utf8_lossy(&buf)
-            .trim_end_matches('\0')
-            .to_string()
+        sanitize_fixed_width_string(&buf)
     }
 }
 
