@@ -448,6 +448,10 @@ impl DJILog {
                 keychain = RefCell::new(keychains.pop_front().unwrap_or(Keychain::empty()));
             }
 
+            if matches!(&record, Record::OFDM(ofdm) if ofdm.signal_percent == 0) {
+                continue;
+            }
+
             records.push(record);
         }
 

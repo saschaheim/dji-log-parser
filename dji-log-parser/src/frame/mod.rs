@@ -77,7 +77,7 @@ impl Frame {
     }
 
     fn is_valid_signal_percent(signal_percent: u8) -> bool {
-        (1..=100).contains(&signal_percent)
+        signal_percent <= 100
     }
 
     fn reset_battery(battery: &mut FrameBattery) {
